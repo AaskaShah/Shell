@@ -176,16 +176,29 @@ void eval(char *cmdline)
 		return;
 
 	sigset_t mask;
-	sigemptyset(&mask);
-	sigaddset(&mask, SIGCHLD);
-	sigprocmask(SIG_BLOCK, &mask, NULL);
+	
+	if(sigemptyset(&mask) != 0){
+			unix_error("sigemptyset error");
+		}
+		if(sigaddset(&mask, SIGCHLD) != 0){
+			unix_error("sigaddset error");
+		}
+		if(sigprocmask(SIG_BLOCK, &mask, NULL) != 0){
+			unix_error("sigprocmask error");
+		}
+
+
 	currpid=fork();                            //it was not a built in function.
 	if(currpid==0){
 		//in chilld
 
 		if (setpgid(0, 0) < 0)
 			unix_error("setgpid error");
-		sigprocmask(SIG_UNBLOCK, &mask, NULL);
+		
+
+if (sigprocmask(SIG_UNBLOCK, &mask, NULL) != 0){
+				unix_error("sigprocmask error");
+			}
 		int fails=execvp(argv[0],argv);
 		if(fails<0){
 			printf("%s : Comand not found\n",argv[0]);
