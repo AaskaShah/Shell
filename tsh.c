@@ -1,7 +1,7 @@
 /* 
  * tsh - A tiny shell program with job control
  * 
- * <Shah Aaska - 201401029>
+ * < Aaska Shah - 201401029 >
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -167,45 +167,45 @@ void eval(char *cmdline)
 {
 	char *argv[MAXARGS];
 	int parsed=parseline(cmdline,argv);
-	//printf("parsed = %d",parsed);
-	if (argv[0] == NULL)                          //ignore blank line.
+
+	if (argv[0] == NULL)                                            /*ignore blank line.*/
 		return;
-	//	printf("called built in here.\n");
+	
 	int builtinfunc=builtin_cmd(argv);
-	if(builtinfunc==1)                      //was a built in function.
+	if(builtinfunc==1)                                              //was a built in function.*/
 		return;
 
+//not a built in function:*/
 	sigset_t mask;
 
-	if(sigemptyset(&mask) != 0){
+	if(sigemptyset(&mask) != 0){                                     //initialize signal set to be empty 
 		unix_error("sigemptyset error");
 	}
-	if(sigaddset(&mask, SIGCHLD) != 0){
+	if(sigaddset(&mask, SIGCHLD) != 0){                              //Add the SIGCHLD signal to the signal set.
 		unix_error("sigaddset error");
 	}
-	if(sigprocmask(SIG_BLOCK, &mask, NULL) != 0){
+	if(sigprocmask(SIG_BLOCK, &mask, NULL) != 0){                    //block SIGCHLD before forking a child 
 		unix_error("sigprocmask error");
 	}
 
-
-	currpid=fork();                            //it was not a built in function.
+	currpid=fork();                                  
 	if(currpid < 0){
 		unix_error("forking error");
 	}
 
 	if(currpid==0){
-		//in chilld
+		
 
-		if (setpgid(0, 0) < 0)
+		if (setpgid(0, 0) < 0)                                    //Child create a new process group with itself as the group leader 
 			unix_error("setgpid error");
 
 
-		if (sigprocmask(SIG_UNBLOCK, &mask, NULL) != 0){
+		if (sigprocmask(SIG_UNBLOCK, &mask, NULL) != 0){          //unblocks the signal
 			unix_error("sigprocmask error");
 		}
 		int fails=execvp(argv[0],argv);
 		if(fails<0){
-			printf("%s : Comand not found\n",argv[0]);
+			printf("%s : Comand not found\n",argv[0]);        //if call to execvp fails
 			exit(0);
 		}
 	}
@@ -213,21 +213,20 @@ void eval(char *cmdline)
 		if (!parsed) {
 
 
-			addjob(jobs,currpid,FG,cmdline);//adding foreground jobs
+			addjob(jobs,currpid,FG,cmdline);                  //adding foreground jobs
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
-			waitfg(currpid); //waiting for all foregroung jobs to complete
+			waitfg(currpid);                                  //waiting for all foregroung jobs to complete
 
 		}
 		else
 		{
 
-			addjob(jobs,currpid,BG,cmdline);//adding background jobs
+			addjob(jobs,currpid,BG,cmdline);                  //adding background jobs
 			sigprocmask(SIG_UNBLOCK, &mask, NULL);
 			printf("[%d] (%d) %s",pid2jid(currpid),currpid,cmdline);
 
 		}
 	}
-	//	waitfg(currpid);
 	return;
 }
 
@@ -294,9 +293,19 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-	//printf("finally on adress. with %s\n",argv[0]);
-	if(strcmp(argv[0],"quit")==0)
+	
+	if(strcmp(argv[0],"quit")==0){
+		
+		//if the state of the jobs are stopped that is its state is ST, then shell can't quit.
+		int i;
+		for (i = 0; i < MAXJOBS; i++){
+			if (jobs[i].state == ST){
+				printf("There are stopped jobs, can't quit tsh");
+				return 1;
+			}
+		}
 		exit(0);
+	}
 	else if(strcmp(argv[0],"jobs")==0)
 	{
 		listjobs(jobs);
@@ -304,7 +313,6 @@ int builtin_cmd(char **argv)
 	}
 	else if(strcmp(argv[0],"fg")==0)
 	{
-		//		printf(" wnt in built in for fg\n");
 		do_bgfg(argv);
 		return 1;
 	}
@@ -359,16 +367,14 @@ void do_bgfg(char **argv)
 			}
 			j++;
 		}
-
+		//to extract job id from the string.
 		int place=1;
 		int jbid=0;
 		while(j!=1){
 			j--;
 			jbid=jbid+(argv[1][j]-'0')*place;
-			//			printf("%d\n",jbid);
 			place=place*10;
 		}
-		//		printf("jobid= %d\n",jbid);
 		// jbid is the job id given in argument.
 		if((jb=getjobjid(jobs,jbid))==NULL){
 			printf("(%d): No such job\n",jbid);
@@ -395,12 +401,9 @@ void do_bgfg(char **argv)
 		while(j!=0){
 			j--;
 			jbid=jbid+(argv[1][j]-'0')*place;
-			//printf("%d\n",jbid);
 			place=place*10;
 		}
-		printf("jobpid= %d\n",jbid);
-		// jbpid is the job id given in argument.
-
+		// jbid is the job pid given in argument.
 
 		if((jb=getjobpid(jobs, jbid))==NULL){
 			printf("(%d): No such process\n",jbid);
@@ -410,13 +413,12 @@ void do_bgfg(char **argv)
 
 	if(jb->state==ST && strcmp(argv[0],"bg")==0){
 		jb->state=BG;
-		kill(-jb->pid,SIGCONT);
-//		printf("[%d] (%d)\n", pid2jid(jb->pid), jb->pid);
+		kill(-jb->pid,SIGCONT);               // sends SIGCONT signal to the process group
 		printf("[%d] (%d) %s",jb->jid,jb->pid,jb->cmdline);
 	}
 	if(jb->state==ST && strcmp(argv[0],"fg")==0){
 		jb->state=FG;
-		kill(-jb->pid,SIGCONT);
+		kill(-jb->pid,SIGCONT);               // sends SIGCONT signal to the process group
 		waitfg(jb->pid);
 	}
 	if(jb->state==BG && strcmp(argv[0],"fg")==0){
@@ -452,8 +454,8 @@ void waitfg(pid_t pid)
 void sigchld_handler(int sig) 
 {
 	int status;
-	pid_t pid;
-	while((pid=waitpid(-1, &status, WNOHANG|WUNTRACED)) >0){
+	pid_t pid=fgpid(jobs);
+	while((pid=waitpid(pid, &status, WNOHANG|WUNTRACED)) >0){
 		//printf("reaping\n");
 
 		if(WIFSIGNALED(status)){
@@ -464,7 +466,7 @@ void sigchld_handler(int sig)
 
 		}
 		else if(WIFSTOPPED(status)){
-			printf("Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WTERMSIG(status));
+			printf("Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(status));
 			struct job_t *jb=getjobpid(jobs,pid);
 			jb->state=ST;
 		}
